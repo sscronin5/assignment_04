@@ -45,7 +45,10 @@ import streamlit as st
 from payroll import build_payroll, load_employees, load_timesheet, payroll_export
 
 st.title("Salt City Coffee — Weekly Payroll")
-st.write("Upload this week's timesheet CSV to see the totals and download the payroll provider's file.")
+st.write(
+    "Upload this week's timesheet CSV to see the totals and download "
+    "the payroll provider's file."
+)
 
 roster = load_employees()
 upload = st.file_uploader("Timesheet CSV", type="csv", key="timesheet")
@@ -74,9 +77,9 @@ if upload is not None:
         if len(unmatched) > 0:
             ids = ", ".join(map(str, unmatched["employee_id"]))
             st.warning(
-                f"These employee_ids are not on the roster and were not paid: {ids}. "
-                "Add them to the roster (or fix the typo) and re-upload."
-            )
+            f"These employee_ids are not on the roster and were not paid: {ids}. "
+            "Add them to the roster (or fix the typo) and re-upload."
+        )
         else:
             st.success("Every employee_id matched the roster.")
 
@@ -90,4 +93,7 @@ if upload is not None:
             key="download",
         )
     else:
-        st.error("Payroll calculation returned no data. Please check your timesheet file.")
+        st.error(
+            "Payroll calculation returned no data. "
+            "Please check your timesheet file."
+        )
