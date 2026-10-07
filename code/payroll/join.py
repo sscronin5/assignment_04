@@ -16,4 +16,8 @@ import pandas as pd
 
 
 def merge_employees(timesheet: pd.DataFrame, employees: pd.DataFrame) -> pd.DataFrame:
-   return pd.merge(timesheet, employees, how = "left", on = "employee_id")
+    """
+    Merges timesheet data with employee details using a left join on 'employee_id'.
+    This preserves all rows from the timesheet and adds matching employee info.
+    """
+    return pd.merge(timesheet, employees, how="left", on="employee_id")
