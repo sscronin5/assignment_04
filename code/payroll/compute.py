@@ -21,7 +21,6 @@ OVERTIME_MULTIPLIER = 1.5
 
 
 def calc_gross_pay(hours: float, rate: float) -> float:
-def calc_gross_pay(hours: float, rate: float) -> float:
     """
     Calculate the gross pay based on hours worked and hourly rate.
     Overtime hours (above 40) are paid at 1.5 times the hourly rate.

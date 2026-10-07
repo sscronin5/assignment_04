@@ -14,6 +14,60 @@ Run it:  Run and Debug -> "Streamlit Run: Current File"   (see README Reference 
 Test it: pytest tests/test_pipeline.py -k app
 """
 
+import streamlit as st
+
+from payroll import build_payroll, load_employees, load_timesheet, payroll_export
+
+st.title("Salt City Coffee — Weekly Payroll")
+st.write("Upload this week's timesheet CSV to see the totals and download the payroll provider's file.")
+
+roster = load_employees()
+upload = st.file_uploader("Timesheet CSV", type="csv", key="timesheet")
+
+if upload is not None:
+    timesheet = load_timesheet(upload)
+    payroll = build_payroll(timesheet, roster)
+
+    if not payroll.empty:
+        payroll_date = payroll["payroll_date"].iloc[0]
+        st.subheader(f"Pay period ending {payroll_date}")
+
+        paid = payroll[payroll["pay_type"] != "unmatched"]
+        overtime = payroll[payroll["pay_type"] == "overtime"]
+        unmatched = payroll[payroll["pay_type"] == "unmatched"]
+
+        total_hours = round(payroll["hours_worked"].sum(), 2)
+        total_gross = payroll["gross_pay"].sum()
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Employees paid", len(paid))
+        col2.metric("Total hours", total_hours)
+        col3.metric("Total gross pay", f"${total_gross:,.2f}")
+        col4.metric("Overtime weeks", len(overtime))
+
+        if len(unmatched) > 0:
+            ids = ", ".join(map(str, unmatched["employee_id"]))
+            st.warning(
+                f"These employee_ids are not on the roster and were not paid: {ids}. "
+                "Add them to the roster (or fix the typo) and re-upload."
+            )
+        else:
+            st.success("Every employee_id matched the roster.")
+
+        st.dataframe(payroll)
+
+        st.download_button(
+            "Download payroll export",
+            data=payroll_export(payroll).to_csv(index=False),
+            file_name=f"payroll_{payroll_date}.csv",
+            mime="text/csv",
+            key="download",
+        )
+    else:
+        st.error("Payroll calculation returned no data. Please check your timesheet file.")
+
+
+
 # --- The page ---------------------------------------------------------------------
 #
 # No scaffolding. Every function this page needs already exists in the payroll
