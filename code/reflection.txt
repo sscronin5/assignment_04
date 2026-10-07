@@ -1,6 +1,35 @@
-Write your reflection here.
-
-See reflection.md for what makes a good reflection — be specific, use the
-terminology from this assignment (lineage, grain, element function, Series.apply,
-row apply / axis=1, left merge, NaN, coerce, copy-add-return, boolean index,
-export), and make it actionable.
+Assignment 04 Reflection: Timesheets to Payroll
+ 
+The easiest parts of this assignment were the clean.py element functions, the merge, and the 
+Streamlit app. clean_currency was almost the same function I wrote in Assignment 02, so I could 
+spend my time on how it fits into a pandas pipeline. Once I had an element function that took one 
+messy value and returned one number, Series.apply ran it down the whole column, and the 
+copy-add-return pattern made add_hours_worked and add_hourly_rate only a few lines each. The merge 
+in join.py also went quickly once I thought about the business rules and not the syntax. Every 
+timesheet row has to survive, even an unknown ID like E099, and rostered people who didn't work 
+shouldn't show up. That means a left merge with the timesheet as the left frame. The default inner 
+merge would have quietly dropped E099, and on a real payroll that means someone doesn't get paid 
+without anyone noticing. The app felt familiar after Assignment 03. It was mostly one build_payroll 
+call plus .sum() for the totals and a boolean index with len() for the counts.
+ 
+I spent the most time on hours parsing, the row-level pay math, and the export. In parse_hours 
+I had to handle every format ("38h 30m", "42h", "24.5", "45m") and still coerce unreadable values 
+like "forty" or a blank to 0.0. "45m" is minutes, not hours, so it has to become 0.75. In compute.py 
+I had to get used to DataFrame.apply with axis=1 and a lambda, because pay needs both hours_worked 
+and hourly_rate_usd from the same row. I also had to make sure exactly 40 hours wasn't counted as 
+overtime, and that a NaN rate from an unmatched row paid 0.0 and was labeled "unmatched" before any 
+overtime check. In payroll_export I learned to build a new DataFrame with the provider's column 
+names instead of renaming the pipeline's columns. Renaming would break lineage, because the payroll 
+table has to keep both its raw and computed columns.
+ 
+The biggest idea I'm taking away is data lineage. A pipeline step only adds columns. It never 
+overwrites, drops, or renames one, and it never changes the frame it was given, which is why .copy() 
+comes first. Keeping "38h 30m" next to 38.5 is what lets someone check where a paycheck number came 
+from. The tests that ran my pipeline on generated weeks showed me my code worked on data I had never 
+seen, not just on the test file.
+ 
+All the tests pass. My last commit cleaned up the style issues GraderThan's ruff checks 
+flagged. Next time I'll run ruff locally before each commit so style feedback doesn't pile up at 
+the end. I'll also test element functions like parse_hours and calc_gross_pay on edge cases first 
+(exactly 40 hours, NaN, "45m") before I wire them into the pipeline, since those were where I lost 
+the most time.
