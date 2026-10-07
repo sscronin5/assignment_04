@@ -21,17 +21,11 @@ OVERTIME_MULTIPLIER = 1.5
 
 
 def calc_gross_pay(hours: float, rate: float) -> float:
-    """
-    Calculate the gross pay based on hours worked and hourly rate.
-    Overtime hours (above 40) are paid at 1.5 times the hourly rate.
-    If hourly rate is missing, returns 0.0.
+    """Gross pay for one employee-week, rounded to cents.
 
-    Args:
-        hours (float): Number of hours worked in the week.
-        rate (float): Hourly wage rate.
-
-    Returns:
-        float: Gross pay rounded to 2 decimal places.
+    Up to 40 hours at `rate`; every hour above 40 at `rate * 1.5`. A missing rate
+    (`NaN`, because the employee was not on the roster) pays `0.0` — the row is
+    flagged elsewhere, it is not this function's job to crash.
     """
     if pd.isna(rate):
         return 0.0
@@ -42,6 +36,15 @@ def calc_gross_pay(hours: float, rate: float) -> float:
 
 
 def classify_pay(hours: float, rate: float) -> str:
+    """One word the office manager can filter on: what kind of pay row is this?
+
+        "unmatched"   the rate is missing -> employee_id was not on the roster
+        "overtime"    more than 40 hours
+        "regular"     everything else
+
+    Check for unmatched *first*: an unknown employee with 45 hours is still
+    unmatched, not overtime.
+    """
     if pd.isna(rate):
         return "unmatched"
     if hours > OVERTIME_THRESHOLD:
@@ -50,6 +53,13 @@ def classify_pay(hours: float, rate: float) -> str:
 
 
 def add_gross_pay(payroll: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with one new column, `gross_pay`: `calc_gross_pay` for every row.
+
+    The function needs two values from the same row, so this is `DataFrame.apply`
+    with `axis=1`, and a lambda that unpacks the row:
+
+        lambda row: calc_gross_pay(row["hours_worked"], row["hourly_rate_usd"])
+    """
     out = payroll.copy()
     out["gross_pay"] = out.apply(
         lambda row: calc_gross_pay(row["hours_worked"], row["hourly_rate_usd"]), axis=1
@@ -58,6 +68,7 @@ def add_gross_pay(payroll: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_pay_type(payroll: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with one new column, `pay_type`: `classify_pay` for every row."""
     out = payroll.copy()
     out["pay_type"] = out.apply(
         lambda row: classify_pay(row["hours_worked"], row["hourly_rate_usd"]), axis=1
@@ -66,6 +77,13 @@ def add_pay_type(payroll: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_payroll(timesheet: pd.DataFrame, employees: pd.DataFrame) -> pd.DataFrame:
+    """The whole pipeline in one call: raw timesheet + raw roster -> payroll table.
+
+    Clean both frames (Step 1), merge them (Step 2), then add `gross_pay` and
+    `pay_type` (Step 3). Every column that went in comes out, plus the four the
+    pipeline computes (`hours_worked`, `hourly_rate_usd`, `gross_pay`, `pay_type`)
+    and the roster's columns — one row per timesheet row.
+    """
     timesheet = add_hours_worked(timesheet)
     employees = add_hourly_rate(employees)
     payroll = merge_employees(timesheet, employees)
@@ -75,6 +93,21 @@ def build_payroll(timesheet: pd.DataFrame, employees: pd.DataFrame) -> pd.DataFr
 
 
 def payroll_export(payroll: pd.DataFrame) -> pd.DataFrame:
+    """The file the online payroll provider imports — a NEW frame, not a renamed one.
+
+    Exactly these columns, in this order, with these names:
+
+        payrolldate, employeeid, hours, rate, total
+
+    taken from `payroll_date`, `employee_id`, `hours_worked`, `hourly_rate_usd`
+    and `gross_pay`. Only rows the provider can pay: `pay_type != "unmatched"`
+    (the provider rejects an ID it does not know, and the manager fixes those
+    rows in the app before re-exporting).
+
+    Build it as a new DataFrame from the columns you want — do not rename the
+    pipeline's columns. The pipeline table keeps its lineage; the export is a
+    view of it shaped for someone else's system.
+    """
     payable = payroll[payroll["pay_type"] != "unmatched"]
     return pd.DataFrame({
         "payrolldate": payable["payroll_date"],
